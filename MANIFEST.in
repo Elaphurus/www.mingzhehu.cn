@@ -1,0 +1,3 @@
+graft hmz/static
+graft hmz/templates
+global-exclude *.pyc

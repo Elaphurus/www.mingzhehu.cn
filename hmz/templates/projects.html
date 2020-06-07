@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+
+{% block header %}
+  <h1>{% block title %}Projects{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+<div>
+	<h3>PyCEAC</h3>
+	<p><a href="https://github.com/S4Plus/pyceac" target="_blank">[Code]</a>, [Bugs found: <a href="https://github.com/python-pillow/Pillow/issues/3966" target="_blank">mishandling exceptions</a>, <a href="https://github.com/python-pillow/Pillow/issues/4115" target="_blank">dynamic memory management flaws</a>]</p>
+	<p>A static analysis toolchain for extracting and analyzing Python/C APIs from Python/C multilingual software systems (and CPython itself), bug-finding checkers for some related bug patterns as well.</p>
+	<h3>Life Game</h3>
+	<p><a href="{{ url_for('lifegame') }}", target="_blank">[Demo]</a>, <a href="https://github.com/Elaphurus/LifeGame", target="_blank">[Code]</a></p>
+	<h3>Image Processing</h3>
+	<p><a href="{{ url_for('imgprocess') }}", target="_blank">[Demo]</a>, <a href="https://github.com/Elaphurus/ImageProcessing", target="_blank">[Code]</a></p>
+	<h3>Shoot Balloon</h3>
+	<p><a href="{{ url_for('shootballoon') }}", target="_blank">[Demo]</a>, <a href="https://github.com/Elaphurus/shootballoon", target="_blank">[Code]</a></p>
+</div>
+{% endblock %}

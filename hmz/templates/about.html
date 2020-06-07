@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block header %}
+  <h1>{% block title %}About{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+<div>
+	<h3>Mingzhe Hu (胡明哲)</h3>
+	<img src="{{ url_for('static', filename='hmz.jpg') }}" alt="hmz.jpg" style="height: 140px;"/>
+	<h3>Contact</h3>
+	<p>Email: humingzhework@163.com</p>
+	<h3>Research Interests</h3>
+	<p>Programming Languages: Program Languages, Software Engineering, Security</p>
+	<h3>Education/Employment</h3>
+	<p>M.Eng. in Cyberspace Security, University of Science and Technology of China (USTC), 2018-?.<br>
+	Advisor: Yu Zhang, Associate Professor.</p>
+	<p>Software Engineer, WUXI CAS PHOTONICS Co., Ltd., 2016-2017.</p>
+	<p>B.S. in Internet of Things, Jiangnan University, 2012-2016.</p>
+	<h3>Publications</h3>
+	<p><b>Mingzhe Hu</b>, and Yu Zhang. The Python/C API: Evolution, Usage Statistics, and Bug Patterns. 27th IEEE International Conference on Software Analysis Evolution and Reengineering (<b>SANER'20</b>), pages 532-536, London, Ontario, Canada, Feb, 2020. <a href="{{ url_for('static', filename='saner2020.pdf') }}" target="_blank">[PDF]</a>
+</div>
+{% endblock %}

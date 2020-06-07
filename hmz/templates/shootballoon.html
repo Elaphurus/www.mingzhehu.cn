@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="Author" content="HuMingZhe">
+		<title>Shoot Balloon</title>
+		<style>
+			*{margin:0;padding:0;}
+			body{
+				overflow:hidden;
+				background-color:#ccc;
+			}
+			.balloon{
+				position:absolute;
+				width:160px;
+				height:160px;
+				background-color:#faf9f9;
+				border-radius:160px 160px 64px 160px;
+				transform:rotate(45deg);
+				box-shadow:-8px -8px 80px -8px #873940 inset;
+			}
+			.balloon::after{
+				position:absolute;
+				bottom:0;
+				right:0;
+				content:'';
+				border:8px solid transparent;
+				border-right-color:#873940;
+				transform:rotate(45deg);
+				border-radius:50%;
+			}
+		</style>
+	</head>
+	<body>
+		<script>
+			var num = 10; //number of balloons in one realease
+			var cycle = 5; //every cycle seconds do one release
+			var wW = window.innerWidth;
+			var wH = window.innerHeight;
+			var bWH = 160;
+			var aBalloons = [];
+			var timer;
+			init();
+			move();
+			document.body.addEventListener('click',function(e){
+				if(e.target.className.toLowerCase() === 'balloon' && e.target.blast === false ) {
+					e.target.blast = true;
+					boom.call(e.target,function(){
+						e.target.parentNode.removeChild(e.target);
+						aBalloons.splice(aBalloons.lastIndexOf(e.target),1);
+					});
+				}
+			},false);
+			function boom(cb) {
+				this.timer = setInterval(function(){
+					if(this.offsetWidth<10) {
+						clearInterval(this.timer);
+						cb&&cb();
+					}
+					this.speed++;
+					this.style.width = this.offsetWidth - 10 + 'px';
+					this.style.height = this.offsetHeight - 10 + 'px';
+				}.bind(this),1000/30);
+			}
+			function init() {
+				var fragment = document.createDocumentFragment();
+				for(var i=0;i<num;i++) {
+					var randomX = ~~(Math.random()*wW) - bWH;
+					randomX = Math.max(0,randomX);
+					var oBalloon = document.createElement('div');
+					oBalloon.style.top = wH - bWH + 'px';
+					oBalloon.style.left = randomX + 'px';
+					oBalloon.speed = Math.max(1,~~(Math.random()*8));
+					oBalloon.blast = false;
+					oBalloon.className = 'balloon';
+					fragment.appendChild(oBalloon);
+					aBalloons.push(oBalloon);
+				}
+				document.body.appendChild(fragment);
+				setTimeout(arguments.callee,1000*cycle)
+			}
+			function move() {
+				//var aBalloons = document.querySelectorAll('.balloon');
+				for(var i=0,len=aBalloons.length;i<len;i++) {
+					aBalloons[i].style.top = aBalloons[i].offsetTop - aBalloons[i].speed + 'px';
+					if(aBalloons[i].offsetTop<0) {
+						clearInterval(aBalloons[i].timer);
+						aBalloons[i].parentNode.removeChild(aBalloons[i]);
+						aBalloons.splice(aBalloons.lastIndexOf(aBalloons[i]),1);
+						len--;
+					}
+				}
+				timer = setTimeout(arguments.callee,1000/60);
+			}
+		</script>
+	</body>
+</html>

@@ -1,0 +1,90 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<title>Life Game</title>
+		<script src="{{ url_for('static', filename='lifegame.js') }}"></script>
+		<style>
+			.spline {
+				width: 700px;
+				height: 1px;
+				background-color: black;
+			}
+			#container {
+				margin-right: 15px;
+			}
+			button {
+				margin-bottom: 5px;
+			}
+			.vacant {
+				width: 20px;
+				height: 20px;
+				border-radius: 10px;
+				float: left;
+				background-color: #9D9D9D;
+			}
+			.occupy {
+				width: 20px;
+				height: 20px;
+				border-radius: 10px;
+				float: left;
+				background-color: #FF8040;
+			}
+		</style>
+	</head>
+	<body>
+		<div>
+			<p>生命游戏 aka 元胞自动机 (Cellular Automata)</p>
+			<ol>
+				<li>在一个格子世界里，每一个格子里最多可以长一个细胞。细胞根据规则，一代一代地存活、繁殖或死亡；
+				</li>
+				<li>每个细胞的成活或死亡规则：
+					<ul>
+						<li>相邻的细胞小于或等于1个，将由于孤独而死；</li>
+						<li>相邻的细胞等于2个或3个，将活到下一代；</li>
+						<li>相邻的细胞大于或等于4个，将因为过度拥挤而死。</li>
+					</ul>
+				</li>
+				<li>细胞的繁衍规则：
+					<ul>
+						<li>如果某个空格周围有3个细胞，那么这个空格里就可以生长出一个新细胞。</li>
+					</ul>
+				</li>
+			</ol>
+		</div>
+		<div class="spline"></div>
+		<div style="margin-bottom: 15px;">
+			<p>这里预置了一些元胞自动机，当然你也可以在下方通过鼠标点击自己创造。</p>
+			<button id="yz1">小演示1</button>
+			<button id="yz2">小演示2</button>
+			<button id="yz3">滑翔者</button>
+			<button id="yz4">轻量级飞船</button>
+			<button id="yz5">脉冲星</button>
+			<button id="yz6">滑翔者枪</button>
+			<button id="yz7">繁殖者</button>
+		</div>
+		<div style="display: flex;">
+			<div id="container">
+			
+			</div>
+			<div>
+				<button id="restart">重置</button><br/>
+				<button id="start">开始</button>
+			</div>
+		</div>
+
+		<script>
+			restart();
+			
+			document.getElementById('yz1').addEventListener('click', yz1, false);
+			document.getElementById('yz2').addEventListener('click', yz2, false);
+			document.getElementById('yz3').addEventListener('click', yz3, false);
+			document.getElementById('yz4').addEventListener('click', yz4, false);
+			document.getElementById('yz5').addEventListener('click', yz5, false);
+			document.getElementById('yz6').addEventListener('click', undo, false);
+			document.getElementById('yz7').addEventListener('click', undo, false);
+			
+			document.getElementById('start').addEventListener('click', start, false);
+			document.getElementById('restart').addEventListener('click', restart, false);
+		</script>
+	</body>
+</html>

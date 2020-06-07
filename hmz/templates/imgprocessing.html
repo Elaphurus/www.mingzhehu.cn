@@ -1,0 +1,73 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<title>Image Processing</title>
+		<style>
+			#image-container {
+				display: flex;
+			}
+			input {
+				margin-bottom: 5px;
+			}
+			button {
+				margin-bottom: 5px;
+			}
+			canvas {
+				margin-right: 10px;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div style="width: 400px;">
+			<input type="file" id="file" />
+			<button id="reset">reset</button>
+			<button id="save">save</button><br/>
+			<input type="text" id="status" value="" readonly="readonly" style="width: 600px;" /><br/>
+		</div>
+		<div id="image-container">
+			<canvas width="400" height="400"></canvas>
+			<div>
+				<button id="grayscale">grayscale</button><br/>
+				<button id="sepia">sepia</button><br/>
+				<button id="thresholding">thresholding-128</button><br/>
+				<button id="invert">invert</button><br/>
+				<button id="saturation">saturation</button><br/>
+				<button id="red">red</button><br/>
+				<button id="green">green</button><br/>
+				<button id="blue">blue</button><br/>
+				<button id="mirror">mirror</button><br/>
+				<button id="sharpen">sharpen</button><br/>
+				<button id="highpass">highpass</button><br/>
+				<button id="lowpass5">lowpass(5*5)</button>
+			</div>
+		</div>
+	</body>
+
+	<script src="{{ url_for('static', filename='imgprocessing.js') }}"></script>
+	
+	<script>
+		var canvas = document.querySelector('canvas');
+		var ctx = canvas.getContext('2d');
+		window.imageSrc = null;
+		window.status = "";
+		var statusLine = document.getElementById('status');
+		
+		document.getElementById('file').addEventListener('change', handleFileSelect, false);
+		document.getElementById('reset').addEventListener('click', redraw, false);
+		document.getElementById('save').addEventListener('click', saveFile, false);
+		
+		document.getElementById('grayscale').addEventListener('click', pixelEffect.bind(grayscale), false);
+		document.getElementById('sepia').addEventListener('click', pixelEffect.bind(sepia), false);
+		document.getElementById('thresholding').addEventListener('click', pixelEffect.bind(thresholding), false);
+		document.getElementById('invert').addEventListener('click', pixelEffect.bind(invert), false);
+		document.getElementById('saturation').addEventListener('click', pixelEffect.bind(saturation), false);
+		document.getElementById('red').addEventListener('click', pixelEffect.bind(red), false);
+		document.getElementById('green').addEventListener('click', pixelEffect.bind(green), false);
+		document.getElementById('blue').addEventListener('click', pixelEffect.bind(blue), false);
+		document.getElementById('mirror').addEventListener('click', mirror, false);
+		document.getElementById('sharpen').addEventListener('click', convolution.bind(sharpen), false);
+		document.getElementById('highpass').addEventListener('click', convolution.bind(highpass), false);
+		document.getElementById('lowpass5').addEventListener('click', convolution.bind(lowpass5), false);
+	</script>
+</html>
