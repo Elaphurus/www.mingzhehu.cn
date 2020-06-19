@@ -62,8 +62,8 @@ name.append(<span class="hljs-number">1</span>)
 <blockquote>
 <p>We call the argument passing technique <em>call by sharing</em>, because the argument objects are shared between the caller and the called routine.  This technique does not correspond to most traditional argument passing techniques (it is similar to argument passing in LISP).  In particular it is not call by value because mutations of arguments performed by the called routine will be visible to the caller. And it is not call by reference because access is not given to the variables of the caller, but merely to certain objects.</p>
 </blockquote>
-<p>即被调用者对参数的修改对调用者而言是可见的，所以不是 CBV；传入的也不是对象的地址值，行参和实参共享同一个对象，而非实参对应对象的值（内容）、行参对应对象的地址，所以也不是 CBR。</p>
-<p>注意变量这个概念，变量在多数语言中也是一个对象，它包含值；而在 CLU 和 Python 中，变量只是一个指向对象的名字，这像指针，但和指针的区别是本身不能被其他变量指向。多个变量分享对象，变量不能指向变量，但是对象可以指向对象，如一个实例包含多个组件，这是一种逻辑而非物理上的包含，不同实例也可以指向同一组件对象。对象也可以指向其自身，这样，在没有显式引用类型的情况下也可以定义递归数据类型和共享数据对象了。</p>
+<p>即被调用者对参数的修改对调用者而言是可见的，所以不是 CBV；传入的也不是对象的地址值，形参和实参共享同一个对象，而非实参对应对象的值（内容）、形参对应对象的地址，所以也不是 CBR。</p>
+<p>注意变量这个概念，变量在多数语言中也是一个对象，它包含值；而在 CLU 和 Python 中，变量只是一个指向对象的名称，这像指针，但和指针的区别是本身不能被其他变量指向。多个变量分享对象，变量不能指向变量，但是对象可以指向对象，如一个实例包含多个组件，这是一种逻辑而非物理上的包含，不同实例也可以指向同一组件对象。对象也可以指向其自身，这样，在没有显式引用类型的情况下也可以定义递归数据类型和共享数据对象了。</p>
 
     </body>
     </html>
