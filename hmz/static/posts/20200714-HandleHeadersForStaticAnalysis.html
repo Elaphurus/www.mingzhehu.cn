@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>静态分析中头文件的处理</title>
+        <style>
+</style>
+        
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/markdown.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/highlight.css">
+<style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', 'Ubuntu', 'Droid Sans', sans-serif;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+        </style>
+        <style>
+.task-list-item { list-style-type: none; } .task-list-item-checkbox { margin-left: -20px; vertical-align: middle; }
+</style>
+        
+        
+        
+    </head>
+    <body class="vscode-light">
+        <h1 id="静态分析中头文件的处理">静态分析中头文件的处理</h1>
+<p>为了使源码可编译，首先需要预处理器（preprocessor）处理 <code>#include</code>、<code>#define</code> 等命令（directive）并移除注释。但是常常会有一些头文件找不到或 <code>typedef</code> 未知的奇怪问题。</p>
+<h2 id="一个预处理的简单例子">一个预处理的简单例子</h2>
+<p>例如，我们要编译 <a href="https://github.com/python-ldap/python-ldap">python-ldap</a> 的 C 扩展模块。作为 Python 项目整体打包时，我们只需要执行 <code>python setup.py install</code>，而从 <code>setup.py</code> 知道扩展模块包含的源码和头文件之后，直接调用 C 编译器单独预处理这部分 C 代码却不成功：</p>
+<p>以 gcc 为例（clang 和 cpp 命令类似）</p>
+<p><code>gcc -E &lt;file.c&gt;</code></p>
+<p>首先一个问题就是 <code>'Python.h' file not found</code>，这是 Python 外部函数接口 <a href="https://docs.python.org/3/c-api/index.html#c-api-index">Python/C API</a> 定义的入口，而 C 编译器并不知道 Python 头文件的位置。所以我们用 <code>-I &lt;dir&gt;</code> 参数指定一个 include 搜索路径：</p>
+<p><code>gcc -E -I&lt;3.7/include/python3.6m&gt; file.c</code></p>
+<p>具体路径可以用 <code>find / -name 'Python.h'</code> 搜索，同理补全更多的搜索路径之后就可以通过编译器的预处理阶段了。</p>
+<h2 id="解析预处理的输出">解析预处理的输出</h2>
+<p>预处理不是目的，一般还需要转换到某些中间形式才能进行静态分析，以使用 <a href="https://github.com/eliben/pycparser">pycparser</a>（或 <a href="https://clang.llvm.org/doxygen/group__CINDEX.html">libclang</a>）生成 AST 为例，在解析（parse）上一步得到的预处理后的代码时，往往又会产生新的报错，例如系统头文件 <code>&lt;MacOSX.sdk/usr/include/i386/_types.h&gt;</code> 或 <code>&lt;MacOSX.sdk/usr/include/lber.h&gt;</code> 中一些 <code>typedef</code> 未知，报错形如 <code>before: __attribute__</code> 或 <code>before: __OSX_AVAILABLE_BUT_DEPRECATED_MSG</code>。这里有两个问题，其一是这些头文件并不在我们的搜索路径中，这是因为 gcc 有一些预置的系统头文件目录，使用编译参数 <code>-nostdinc</code> 可以禁用这种行为。其二是既然预处理器没有报错，为什么其输出无法解析，这是因为 pycparser 不支持 GCC 等编译器扩展，比如 GNU-specific <code>__attribute__</code>，为此我们可以使用 <code>-D</code> 参数补充这块定义，比如 <code>-D'__attribute__(x)='</code>。</p>
+<p>pycparser 使用 <code>fake_libc_include</code> 处理一些标准 C 库头文件，其中给出一些 <code>#define</code> 和 <code>typedef</code> 的最小化定义：</p>
+<p><code>typedef int T;</code></p>
+<p>即解析器（parser）只需要知道存在类型 <code>T</code>，而不在乎该类型的具体实现（语义），比如 <code>T</code> 可能是一个接受结构体数组的函数指针。</p>
+<p>pycparser 支持完整的 C99 语言，如果目标程序只依赖<strong>标准 C 库头文件</strong>（standard C library headers，C runtime，如 <code>stdio.h</code>），那么 <code>-I&lt;fake_libc_include&gt;</code> 一般就够了。但是如前例所示，目标程序可能还依赖<strong>系统头文件</strong>（system headers，如 <code>_types.h</code>）和<strong>其他库的头文件</strong>（other library headers，如 <code>Python.h</code>），这些就需要通过编译参数补充，这些补充定义也可以是最小化的。一般来说，对于我们关心的部分（假设是目标程序和 Python/C API）应该提供完整定义，而其他部分就可以使用最小化定义，这样既可以省去大量繁琐工作，也可以减少解析时间和 AST 体积。</p>
+<h2 id="一个复杂的例子">一个复杂的例子</h2>
+<p>我们尝试预处理并解析 Python 源码中 <code>Modules</code> 目录下 C 语言实现的标准库，按照以上策略补充了一系列参数之后依旧存在两个问题，其一是一些定义和平台产生了冲突（如 <a href="https://github.com/python/cpython/blob/master/Include/pyport.h#L743">definition wrong for platform</a>）。其二是补充定义的量过大而无法穷尽，一般是存在大量系统相关的定义（如 <a href="https://docs.microsoft.com/en-us/cpp/cpp/declspec?view=vs-2019">__declspec</a>、<a href="https://stackoverflow.com/questions/26456510/what-does-asm-volatile-do-in-c">__asm__</a>），这里其实已经变成了一个交叉编译（cross compilation）的问题（TODO）。</p>
+<p>一个简单的替代解决方法是先在本地机器上执行构建（build）Python 的配置脚本：</p>
+<p><code>./configure --with-pydebug</code></p>
+<p>即产生平台相关的 <code>pyconfig.h</code> 来解决上述问题，之后重复以上策略配置少量参数就可以得到目标代码的 AST 了。</p>
+<h2 id="一个小工具">一个小工具</h2>
+<p>一方面，有一些通用的编译参数，也有一些目标项目特定的，对于同一项目希望可以实现参数的复用，同时不直接修改而是复用 <code>fake_libc_include</code>；另一方面，希望配置的过程可以遵循一定的流程，并且避免输入非常长的命令。因此，基于 pycparser 和 yaml 实现了一个编译参数配置工具，可以自动解析配置文件中的编译参数，动态构建 <code>pycparser.parse_file()</code> 的参数列表。</p>
+<p>主程序 <code>preprocess</code> 除目标文件路径外还接受一个可选参数。缺省时仅加载配置文件 <code>pp_config.yml</code> 中 <code>all</code> 对象存储的通用参数，指定 <code>&lt;project_name&gt;</code> 时则会加载项目特定参数。调试过程就是反复执行主程序，根据报错信息增量地修改配置文件中对应对象的参数条目。调试成功后输出 C 目标程序的 AST，编译参数也自动在配置文件中保留了下来。</p>
+<h2 id="参考">参考</h2>
+<ol>
+<li><a href="https://github.com/eliben/pycparser">pycparser</a></li>
+<li><a href="https://eli.thegreenplace.net/2015/on-parsing-c-type-declarations-and-fake-headers">On parsing C, type declarations and fake headers</a></li>
+<li><a href="https://stackoverflow.com/questions/33763611/how-to-preprocess-a-c-source-code-for-pycparser">How to preprocess a C source code for pycparser</a></li>
+<li><a href="https://blog.csdn.net/benkaoya/article/details/52368638">用 __attribute__((deprecated)) 管理过时的代码</a></li>
+<li><a href="https://www.jianshu.com/p/29eb7b5c8b2d">__attribute__ 总结</a></li>
+<li><a href="https://bugs.python.org/issue1023838">Include/pyport.h: Bad LONG_BIT assumption on non-glibc sys</a></li>
+<li><a href="https://github.com/tpoechtrager/osxcross/commit/f4b0948abd9cad576d2def3d1cd52b9ef956ef52">OSXCross: Fix building GCC with 10.15 SDK, __OSX_AVAILABLE_BUT_DEPRECATED_MSG</a></li>
+<li><a href="https://docs.microsoft.com/en-us/cpp/cpp/declspec?view=vs-2019">Microsoft-specific modifiers: __declspec</a></li>
+<li><a href="https://stackoverflow.com/questions/26456510/what-does-asm-volatile-do-in-c">What does __asm__ __volatile__ do in C</a></li>
+<li>Build Python from source: <a href="https://devguide.python.org">1</a>, <a href="https://devguide.python.org/setup/#compiling">2</a>, <a href="https://devguide.python.org/setup/#build-dependencies">3</a></li>
+<li><a href="http://www.ruanyifeng.com/blog/2016/07/yaml.html">yaml</a></li>
+</ol>
+
+    </body>
+    </html>
