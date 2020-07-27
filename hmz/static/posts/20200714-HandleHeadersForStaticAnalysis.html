@@ -44,7 +44,7 @@
 <p><code>./configure --with-pydebug</code></p>
 <p>即产生平台相关的 <code>pyconfig.h</code> 来解决上述问题，之后重复以上策略配置少量参数就可以得到目标代码的 AST 了。</p>
 <h2 id="一个小工具">一个小工具</h2>
-<p>一方面，有一些通用的编译参数，也有一些目标项目特定的，对于同一项目希望可以实现参数的复用，同时不直接修改而是复用 <code>fake_libc_include</code>；另一方面，希望配置的过程可以遵循一定的流程，并且避免输入非常长的命令。因此，基于 pycparser 和 yaml 实现了一个编译参数配置工具，可以自动解析配置文件中的编译参数，动态构建 <code>pycparser.parse_file()</code> 的参数列表。</p>
+<p>一方面，有一些通用的编译参数，也有一些目标项目特定的，对于同一项目希望可以实现参数的复用，同时不直接修改而是复用 <code>fake_libc_include</code>；另一方面，希望配置的过程可以遵循一定的流程，避免输入非常长的命令，并且不和分析部分代码耦合。因此，基于 pycparser 和 yaml 实现了一个编译参数配置工具，可以自动解析配置文件中的编译参数，动态构建 <code>pycparser.parse_file()</code> 的参数列表。</p>
 <p>主程序 <code>preprocess</code> 除目标文件路径外还接受一个可选参数。缺省时仅加载配置文件 <code>pp_config.yml</code> 中 <code>all</code> 对象存储的通用参数，指定 <code>&lt;project_name&gt;</code> 时则会加载项目特定参数。调试过程就是反复执行主程序，根据报错信息增量地修改配置文件中对应对象的参数条目。调试成功后输出 C 目标程序的 AST，编译参数也自动在配置文件中保留了下来。</p>
 <h2 id="参考">参考</h2>
 <ol>
