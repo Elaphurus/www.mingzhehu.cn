@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Learn Emacs in Y Minutes</title>
+        <style>
+</style>
+        
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/markdown.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/highlight.css">
+<style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', 'Ubuntu', 'Droid Sans', sans-serif;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+        </style>
+        <style>
+.task-list-item { list-style-type: none; } .task-list-item-checkbox { margin-left: -20px; vertical-align: middle; }
+</style>
+        
+        
+        
+    </head>
+    <body class="vscode-light">
+        <h1 id="learn-emacs-in-y-minutes">Learn Emacs in Y Minutes</h1>
+<p><a href="https://www.gnu.org/software/emacs/refcards/pdf/refcard.pdf">GNU Emacs Reference Card</a></p>
+<p>同时按下 <code>control</code> 和 <code>chr</code> 记作 <code>C-&lt;chr&gt;</code>（一般用于字符、行），同时按下 <code>meta</code> (<code>alt</code>, <code>option</code>) 和 <code>chr</code> 记作 <code>M-&lt;chr&gt;</code>（一般用于单词、句子、段落）。</p>
+<h3 id="启动关闭模式">启动/关闭/模式</h3>
+<ul>
+<li>按 <code>q</code> 关闭欢迎界面</li>
+<li>打开内置教程 <code>C-h t</code></li>
+<li>关闭 <code>C-x C-c</code></li>
+<li>挂起 <code>C-z</code></li>
+<li>终止执行、清除输入 <code>C-g</code></li>
+<li>有些命令需要二次确认，按 <code>n</code> 取消，按 <code>&lt;SPC&gt;</code>（空格）继续</li>
+<li>使用人类语言的文本模式 <code>M-x text-mode</code></li>
+<li>显示当前模式文档 <code>C-h m</code></li>
+<li>在新窗口中显示命令文档 <code>C-h k ...</code></li>
+<li>命令的简短描述 <code>C-h c ...</code></li>
+<li>以关键字搜索命令 <code>C-h a ...</code></li>
+</ul>
+<h3 id="窗口光标移动">窗口/光标移动</h3>
+<ul>
+<li>下移一屏 <code>C-v</code>（上移一屏 <code>M-v</code>）</li>
+<li>光标所在行移至屏幕中间 <code>C-l</code>，再按一次至屏幕顶端，再按一次至屏幕底端</li>
+<li>上移（Previous）<code>C-p</code></li>
+<li>下移（Next）<code>C-n</code></li>
+<li>左移（Backward）<code>C-b</code>（按词左移 <code>M-b</code>）</li>
+<li>右移（Forward）<code>C-f</code>（按词左移 <code>M-f</code>）</li>
+<li>移至行首 <code>C-a</code>（句首 <code>M-a</code>）</li>
+<li>移至行尾 <code>C-e</code>（句末 <code>M-e</code>）</li>
+<li>移至最首行 <code>M-&lt;</code></li>
+<li>移至最末行 <code>M-&gt;</code></li>
+<li>重复命令 <code>C-u n ...</code></li>
+<li>关闭其他窗口 <code>C-x 1</code></li>
+<li>设置换行宽度 <code>C-x f ...</code></li>
+<li>前向搜索 <code>C-s ...</code>（后向 <code>C-r ...</code>）</li>
+<li>窗口一分为二 <code>C-x 2</code></li>
+<li>在新窗口打开文件 <code>C-x 4 C-f ...</code></li>
+<li>副窗口下移一屏 <code>C-M-v</code></li>
+<li>进入其他窗口 <code>C-x o</code></li>
+</ul>
+<h3 id="编辑">编辑</h3>
+<ul>
+<li>删除 <code>&lt;DEL&gt;</code>（按词删除<code>M-&lt;DEL&gt;</code>）</li>
+<li>向右删除字符 <code>C-d</code>（按词向右删除 <code>M-d</code>）</li>
+<li>删至行尾 <code>C-k</code>（句尾 <code>M-k</code>）</li>
+<li>粘贴最近删除内容（yank）<code>C-y</code>（替换为更早删除 <code>M-y</code>）</li>
+<li>撤销 <code>C-/</code></li>
+<li>大写光标至单词结束的字符 <code>M-u</code>（小写 <code>M-l</code>，首字母大写 <code>M-c</code>）</li>
+<li>交换左右单词 <code>M-t</code>（交换左右字符 <code>C-t</code>）</li>
+<li>替换 <code>M-x replace-string ... ...</code></li>
+</ul>
+<h3 id="文件缓存">文件/缓存</h3>
+<ul>
+<li>打开文件 <code>C-x C-f ...</code></li>
+<li>保存 <code>C-x C-s</code></li>
+<li>显示缓存列表 <code>C-x C-b</code></li>
+<li>打开缓存 <code>C-x b ...</code></li>
+<li>保存缓存 <code>C-x s</code></li>
+<li>恢复自动保存文件 <code>M-x recover-file</code></li>
+</ul>
+
+    </body>
+    </html>
