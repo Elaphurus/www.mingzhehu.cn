@@ -30,7 +30,7 @@
 <p>以 gcc 为例（clang 和 cpp 命令类似）</p>
 <p><code>gcc -E &lt;file.c&gt;</code></p>
 <p>首先一个问题就是 <code>'Python.h' file not found</code>，这是 Python 外部函数接口 <a href="https://docs.python.org/3/c-api/index.html#c-api-index">Python/C API</a> 定义的入口，而 C 编译器并不知道 Python 头文件的位置。所以我们用 <code>-I &lt;dir&gt;</code> 参数指定一个 include 搜索路径：</p>
-<p><code>gcc -E -I&lt;3.7/include/python3.6m&gt; file.c</code></p>
+<p><code>gcc -E -I&lt;3.6/include/python3.6m&gt; file.c</code></p>
 <p>具体路径可以用 <code>find / -name 'Python.h'</code> 搜索，同理补全更多的搜索路径之后就可以通过编译器的预处理阶段了。</p>
 <h2 id="解析预处理的输出">解析预处理的输出</h2>
 <p>预处理不是目的，一般还需要转换到某些中间形式才能进行静态分析，以使用 <a href="https://github.com/eliben/pycparser">pycparser</a>（或 <a href="https://clang.llvm.org/doxygen/group__CINDEX.html">libclang</a>）生成 AST 为例，在解析（parse）上一步得到的预处理后的代码时，往往又会产生新的报错，例如系统头文件 <code>&lt;MacOSX.sdk/usr/include/i386/_types.h&gt;</code> 或 <code>&lt;MacOSX.sdk/usr/include/lber.h&gt;</code> 中一些 <code>typedef</code> 未知，报错形如 <code>before: __attribute__</code> 或 <code>before: __OSX_AVAILABLE_BUT_DEPRECATED_MSG</code>。这里有两个问题，其一是这些头文件并不在我们的搜索路径中，这是因为 gcc 有一些预置的系统头文件目录，使用编译参数 <code>-nostdinc</code> 可以禁用这种行为。其二是既然预处理器没有报错，为什么其输出无法解析，这是因为 pycparser 不支持 GCC 等编译器扩展，比如 GNU-specific <code>__attribute__</code>，为此我们可以使用 <code>-D</code> 参数补充这块定义，比如 <code>-D'__attribute__(x)='</code>。</p>
