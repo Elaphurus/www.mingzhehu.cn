@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>JavaScript &#x8C03;&#x7528; C&sol;C&plus;&plus; &#x5916;&#x90E8;&#x51FD;&#x6570;</title>
+        <style>
+</style>
+        
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/markdown.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/highlight.css">
+<style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', 'Ubuntu', 'Droid Sans', sans-serif;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+        </style>
+        <style>
+.task-list-item { list-style-type: none; } .task-list-item-checkbox { margin-left: -20px; vertical-align: middle; }
+</style>
+        
+        
+        
+    </head>
+    <body class="vscode-body vscode-light">
+        <h1 id="javascript-调用-cc-外部函数">JavaScript 调用 C/C++ 外部函数</h1>
+<p>本文主要包括以下内容：</p>
+<ul>
+<li>JS 调用 C/C++ 的方法和原理</li>
+<li>JS 外部函数调用的类型错误隐患</li>
+<li>JS/C 内存管理：单向透明的内存模型</li>
+</ul>
+<p>JS 调用 C/C++ 需要通过 WebAssembly，假设有 C++ 文件 <code>function.cpp</code> 如下：</p>
+<pre><code class="language-c++"><div><span class="hljs-meta">#<span class="hljs-meta-keyword">include</span> <span class="hljs-meta-string">&lt;math.h&gt;</span></span>
+
+<span class="hljs-keyword">extern</span> <span class="hljs-string">&quot;C&quot;</span> {
+
+<span class="hljs-function"><span class="hljs-keyword">int</span> <span class="hljs-title">int_sqrt</span><span class="hljs-params">(<span class="hljs-keyword">int</span> x)</span> </span>{
+    <span class="hljs-keyword">return</span> <span class="hljs-built_in">sqrt</span>(x);
+}
+
+}
+</div></code></pre>
+<p>由于 C/C++ 函数名映射到 JS 端时默认是在前面加一个下划线，所以使用 <code>extern &quot;C&quot;</code> 避免 C++ 的名称重整（name mangling）。</p>
+<p>使用 <a href="https://github.com/emscripten-core/emscripten">emscripten</a> 编译（<a href="https://emscripten.org/docs/porting/connecting_cpp_and_javascript/Interacting-with-code.html#interacting-with-code">文档</a>）：</p>
+<pre><code class="language-bash"><div>emcc function.cpp -o function.html -s EXPORTED_FUNCTIONS=<span class="hljs-string">&#x27;[&quot;_int_sqrt&quot;]&#x27;</span> -s EXPORTED_RUNTIME_METHODS=<span class="hljs-string">&#x27;[&quot;ccall&quot;,&quot;cwrap&quot;]&#x27;</span>
+</div></code></pre>
+<p><code>EXPORTED_FUNCTIONS</code> 指明需要暴露的对象，<code>EXPORTED_RUNTIME_METHODS</code> 指明除直接调用外，还想要使用运行时函数 <code>ccall</code> 和 <code>cwrap</code>。</p>
+<p>编译后生成了一个 <code>.js</code> 文件，一个 <code>.wasm</code> 文件和一个 <code>.html</code> 文件。<code>function.js</code> 中有这样的胶水代码：</p>
+<pre><code class="language-javascript"><div><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">createExportWrapper</span>(<span class="hljs-params">name, fixedasm</span>) </span>{
+  <span class="hljs-keyword">return</span> <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params"></span>) </span>{
+    <span class="hljs-keyword">var</span> displayName = name;
+    <span class="hljs-keyword">var</span> asm = fixedasm;
+    <span class="hljs-keyword">if</span> (!fixedasm) {
+      asm = Module[<span class="hljs-string">&#x27;asm&#x27;</span>];
+    }
+    assert(runtimeInitialized, <span class="hljs-string">&#x27;native function `&#x27;</span> + displayName + <span class="hljs-string">&#x27;` called before runtime initialization&#x27;</span>);
+    assert(!runtimeExited, <span class="hljs-string">&#x27;native function `&#x27;</span> + displayName + <span class="hljs-string">&#x27;` called after runtime exit (use NO_EXIT_RUNTIME to keep it alive after main() exits)&#x27;</span>);
+    <span class="hljs-keyword">if</span> (!asm[name]) {
+      assert(asm[name], <span class="hljs-string">&#x27;exported native function `&#x27;</span> + displayName + <span class="hljs-string">&#x27;` not found&#x27;</span>);
+    }
+    <span class="hljs-keyword">return</span> asm[name].apply(<span class="hljs-literal">null</span>, <span class="hljs-built_in">arguments</span>);
+  };
+}
+
+<span class="hljs-comment">/** <span class="hljs-doctag">@type <span class="hljs-type">{function(...*):?}</span> </span>*/</span>
+<span class="hljs-keyword">var</span> _int_sqrt = Module[<span class="hljs-string">&quot;_int_sqrt&quot;</span>] = createExportWrapper(<span class="hljs-string">&quot;int_sqrt&quot;</span>);
+};
+</div></code></pre>
+<p>其中 <code>Module</code> 是 Emscripten 运行时的全局对象，根据名字 <code>int_sqrt</code> 去由 C++ 编译得到的 <code>function.wasm</code> 中找对应的对象并执行：</p>
+<pre><code class="language-wat"><code><div>(func (;1;) (type 0) (param i32) (result i32)
+    (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 f64 f64 f64)
+    global.get 0
+    local.set 1
+    i32.const 16
+    local.set 2
+    local.get 1
+    local.get 2
+    i32.sub
+    local.set 3
+    local.get 3
+    global.set 0
+    local.get 3
+    local.get 0
+    i32.store offset=12
+    local.get 3
+    i32.load offset=12
+    local.set 4
+    local.get 4
+    call 2
+    local.set 13
+    local.get 13
+    f64.abs
+    local.set 14
+    f64.const 0x1p+31 (;=2.14748e+09;)
+    local.set 15
+    local.get 14
+    local.get 15
+    f64.lt
+    local.set 5
+    local.get 5
+    i32.eqz
+    local.set 6
+    block  ;; label = @1
+      block  ;; label = @2
+        local.get 6
+        br_if 0 (;@2;)
+        local.get 13
+        i32.trunc_f64_s
+        local.set 7
+        local.get 7
+        local.set 8
+        br 1 (;@1;)
+      end
+      i32.const -2147483648
+      local.set 9
+      local.get 9
+      local.set 8
+    end
+    local.get 8
+    local.set 10
+    i32.const 16
+    local.set 11
+    local.get 3
+    local.get 11
+    i32.add
+    local.set 12
+    local.get 12
+    global.set 0
+    local.get 10
+    return)
+
+(export &quot;int_sqrt&quot; (func 1))
+</div></code></code></pre>
+<p>所以在 JS 端直接调用就是 <code>_int_sqrt(10)</code> 或 <code>Module._int_sqrt(10)</code>，这种方式更快，但是需要自己保证传入参数的类型和 wasm 实现相匹配（如此例中的 <code>i32</code>）。也可以使用 <code>ccall</code> 调用：</p>
+<pre><code class="language-javascript"><div><span class="hljs-keyword">var</span> result = Module.ccall(<span class="hljs-string">&#x27;int_sqrt&#x27;</span>, <span class="hljs-comment">// C function name</span>
+                          <span class="hljs-string">&#x27;number&#x27;</span>,   <span class="hljs-comment">// return type</span>
+                          [<span class="hljs-string">&#x27;number&#x27;</span>], <span class="hljs-comment">// argument types</span>
+                          [<span class="hljs-number">10</span>]        <span class="hljs-comment">// arguments</span>
+);
+</div></code></pre>
+<p><code>ccall</code> 实现如下：</p>
+<pre><code class="language-javascript"><div><span class="hljs-comment">// C calling interface.</span>
+<span class="hljs-comment">/** <span class="hljs-doctag">@param <span class="hljs-type">{string|null=}</span> <span class="hljs-variable">returnType</span></span>
+    <span class="hljs-doctag">@param <span class="hljs-type">{Array=}</span> <span class="hljs-variable">argTypes</span></span>
+    <span class="hljs-doctag">@param <span class="hljs-type">{Arguments|Array=}</span> <span class="hljs-variable">args</span></span>
+    <span class="hljs-doctag">@param <span class="hljs-type">{Object=}</span> </span>opts */</span>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">ccall</span>(<span class="hljs-params">ident, returnType, argTypes, args, opts</span>) </span>{
+  <span class="hljs-comment">// For fast lookup of conversion functions</span>
+  <span class="hljs-keyword">var</span> toC = {
+    <span class="hljs-string">&#x27;string&#x27;</span>: <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">str</span>) </span>{
+      <span class="hljs-keyword">var</span> ret = <span class="hljs-number">0</span>;
+      <span class="hljs-keyword">if</span> (str !== <span class="hljs-literal">null</span> &amp;&amp; str !== <span class="hljs-literal">undefined</span> &amp;&amp; str !== <span class="hljs-number">0</span>) { <span class="hljs-comment">// null string</span>
+        <span class="hljs-comment">// at most 4 bytes per UTF-8 code point, +1 for the trailing &#x27;\0&#x27;</span>
+        <span class="hljs-keyword">var</span> len = (str.length &lt;&lt; <span class="hljs-number">2</span>) + <span class="hljs-number">1</span>;
+        ret = stackAlloc(len);
+        stringToUTF8(str, ret, len);
+      }
+      <span class="hljs-keyword">return</span> ret;
+    },
+    <span class="hljs-string">&#x27;array&#x27;</span>: <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">arr</span>) </span>{
+      <span class="hljs-keyword">var</span> ret = stackAlloc(arr.length);
+      writeArrayToMemory(arr, ret);
+      <span class="hljs-keyword">return</span> ret;
+    }
+  };
+
+  <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">convertReturnValue</span>(<span class="hljs-params">ret</span>) </span>{
+    <span class="hljs-keyword">if</span> (returnType === <span class="hljs-string">&#x27;string&#x27;</span>) <span class="hljs-keyword">return</span> UTF8ToString(ret);
+    <span class="hljs-keyword">if</span> (returnType === <span class="hljs-string">&#x27;boolean&#x27;</span>) <span class="hljs-keyword">return</span> <span class="hljs-built_in">Boolean</span>(ret);
+    <span class="hljs-keyword">return</span> ret;
+  }
+
+  <span class="hljs-keyword">var</span> func = getCFunc(ident);
+  <span class="hljs-keyword">var</span> cArgs = [];
+  <span class="hljs-keyword">var</span> stack = <span class="hljs-number">0</span>;
+  assert(returnType !== <span class="hljs-string">&#x27;array&#x27;</span>, <span class="hljs-string">&#x27;Return type should not be &quot;array&quot;.&#x27;</span>);
+  <span class="hljs-keyword">if</span> (args) {
+    <span class="hljs-keyword">for</span> (<span class="hljs-keyword">var</span> i = <span class="hljs-number">0</span>; i &lt; args.length; i++) {
+      <span class="hljs-keyword">var</span> converter = toC[argTypes[i]];
+      <span class="hljs-keyword">if</span> (converter) {
+        <span class="hljs-keyword">if</span> (stack === <span class="hljs-number">0</span>) stack = stackSave();
+        cArgs[i] = converter(args[i]);
+      } <span class="hljs-keyword">else</span> {
+        cArgs[i] = args[i];
+      }
+    }
+  }
+  <span class="hljs-keyword">var</span> ret = func.apply(<span class="hljs-literal">null</span>, cArgs);
+
+  ret = convertReturnValue(ret);
+  <span class="hljs-keyword">if</span> (stack !== <span class="hljs-number">0</span>) stackRestore(stack);
+  <span class="hljs-keyword">return</span> ret;
+}
+
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">writeArrayToMemory</span>(<span class="hljs-params">array, buffer</span>) </span>{
+  assert(array.length &gt;= <span class="hljs-number">0</span>, <span class="hljs-string">&#x27;writeArrayToMemory array must have a length (should be an array or typed array)&#x27;</span>)
+  HEAP8.set(array, buffer);
+}
+</div></code></pre>
+<p>给出了入参为 <code>string</code> 和 <code>array</code> 类型时分配 JS 堆的方式，外部函数 <code>stackAlloc</code> 计算存储位置：</p>
+<pre><code class="language-javascript"><div><span class="hljs-comment">/** <span class="hljs-doctag">@type <span class="hljs-type">{function(...*):?}</span> </span>*/</span>
+<span class="hljs-keyword">var</span> stackAlloc = Module[<span class="hljs-string">&quot;stackAlloc&quot;</span>] = createExportWrapper(<span class="hljs-string">&quot;stackAlloc&quot;</span>);
+</div></code></pre>
+<p>其 wasm 实现如下：</p>
+<pre><code class="language-wat"><code><div>(func (;5;) (type 0) (param i32) (result i32)
+  (local i32 i32)
+  global.get 0
+  local.get 0
+  i32.sub
+  i32.const -16
+  i32.and
+  local.tee 1
+  global.set 0
+  local.get 1)
+
+(export &quot;stackAlloc&quot; (func 5))
+</div></code></code></pre>
+<p>这被称作<a href="https://www.cntofu.com/book/150/zh/ch2-c-js/ch2-03-mem-model.html">单向透明的内存模型</a>，即 C/C++ 编译得到的 wasm 的运行时堆和运行时栈全部在 JS 堆（<code>Module.buffer</code>）上，JS 环境中的其他对象无法被 wasm 直接访问。</p>
+<p><code>cwrap</code> 是对 <code>ccall</code> 的封装，方便多次调用：</p>
+<pre><code class="language-javascript"><div>int_sqrt = Module.cwrap(<span class="hljs-string">&#x27;int_sqrt&#x27;</span>, <span class="hljs-string">&#x27;number&#x27;</span>, [<span class="hljs-string">&#x27;number&#x27;</span>]);
+int_sqrt(<span class="hljs-number">10</span>);
+</div></code></pre>
+<p><code>cwrap</code> 实现如下：</p>
+<pre><code class="language-javascript"><div><span class="hljs-comment">/** <span class="hljs-doctag">@param <span class="hljs-type">{string=}</span> <span class="hljs-variable">returnType</span></span>
+    <span class="hljs-doctag">@param <span class="hljs-type">{Array=}</span> <span class="hljs-variable">argTypes</span></span>
+    <span class="hljs-doctag">@param <span class="hljs-type">{Object=}</span> </span>opts */</span>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">cwrap</span>(<span class="hljs-params">ident, returnType, argTypes, opts</span>) </span>{
+  <span class="hljs-keyword">return</span> <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params"></span>) </span>{
+    <span class="hljs-keyword">return</span> ccall(ident, returnType, argTypes, <span class="hljs-built_in">arguments</span>, opts);
+  }
+}
+</div></code></pre>
+<p>此外我们可以看到不管是直接调用还是通过 <code>ccall</code> 调用，对于参数个数都没有检查，同时对于非 <code>string</code> 和 <code>array</code> 类型的参数也没有类型检查（<code>string</code> 和 <code>array</code> 类型的检查机制需要进一步考察内部的函数调用）。</p>
+<p>此例接收一个整型参数，我们构造如下的错误：</p>
+<pre><code class="language-javascript"><div><span class="hljs-keyword">var</span> result = Module.ccall(<span class="hljs-string">&#x27;int_sqrt&#x27;</span>,
+                          <span class="hljs-string">&#x27;number&#x27;</span>,
+                          [<span class="hljs-string">&#x27;number&#x27;</span>],
+                          [<span class="hljs-string">&#x27;10&#x27;</span>]
+);
+<span class="hljs-built_in">console</span>.log(result); <span class="hljs-comment">// 1</span>
+
+int_sqrt = Module.cwrap(<span class="hljs-string">&#x27;int_sqrt&#x27;</span>, <span class="hljs-string">&#x27;number&#x27;</span>, [<span class="hljs-string">&#x27;number&#x27;</span>]);
+<span class="hljs-built_in">console</span>.log(int_sqrt(<span class="hljs-number">10</span>, <span class="hljs-number">5</span>)); <span class="hljs-comment">// 2</span>
+
+<span class="hljs-built_in">console</span>.log(_int_sqrt(<span class="hljs-string">&#x27;a&#x27;</span>)); <span class="hljs-comment">// 3</span>
+</div></code></pre>
+<p>程序点 1 输出 3（10 的平方根取整），这与 JS 的弱类型是一致的；程序点 2 输出 3 是因为没有参数个数检查，直接忽略了第二位置开始的所有参数；程序点 3 输出 0。三者都没有报错。</p>
+<p>我们进一步探究一下内存模型。</p>
+<p>设计 C++ 程序如下：</p>
+<pre><code class="language-c++"><div><span class="hljs-meta">#<span class="hljs-meta-keyword">ifndef</span> EM_PORT_API</span>
+<span class="hljs-meta">#	<span class="hljs-meta-keyword">if</span> defined(__EMSCRIPTEN__)</span>
+<span class="hljs-meta">#		<span class="hljs-meta-keyword">include</span> <span class="hljs-meta-string">&lt;emscripten.h&gt;</span></span>
+<span class="hljs-meta">#		<span class="hljs-meta-keyword">if</span> defined(__cplusplus)</span>
+<span class="hljs-meta">#			<span class="hljs-meta-keyword">define</span> EM_PORT_API(rettype) extern <span class="hljs-meta-string">&quot;C&quot;</span> rettype EMSCRIPTEN_KEEPALIVE</span>
+<span class="hljs-meta">#		<span class="hljs-meta-keyword">else</span></span>
+<span class="hljs-meta">#			<span class="hljs-meta-keyword">define</span> EM_PORT_API(rettype) rettype EMSCRIPTEN_KEEPALIVE</span>
+<span class="hljs-meta">#		<span class="hljs-meta-keyword">endif</span></span>
+<span class="hljs-meta">#	<span class="hljs-meta-keyword">else</span></span>
+<span class="hljs-meta">#		<span class="hljs-meta-keyword">if</span> defined(__cplusplus)</span>
+<span class="hljs-meta">#			<span class="hljs-meta-keyword">define</span> EM_PORT_API(rettype) extern <span class="hljs-meta-string">&quot;C&quot;</span> rettype</span>
+<span class="hljs-meta">#		<span class="hljs-meta-keyword">else</span></span>
+<span class="hljs-meta">#			<span class="hljs-meta-keyword">define</span> EM_PORT_API(rettype) rettype</span>
+<span class="hljs-meta">#		<span class="hljs-meta-keyword">endif</span></span>
+<span class="hljs-meta">#	<span class="hljs-meta-keyword">endif</span></span>
+<span class="hljs-meta">#<span class="hljs-meta-keyword">endif</span></span>
+
+<span class="hljs-meta">#<span class="hljs-meta-keyword">include</span> <span class="hljs-meta-string">&lt;stdio.h&gt;</span></span>
+
+<span class="hljs-keyword">int</span> g_int = <span class="hljs-number">42</span>;
+<span class="hljs-keyword">double</span> g_double = <span class="hljs-number">3.1415926</span>;
+
+EM_PORT_API(<span class="hljs-keyword">int</span>*) get_int_ptr() {
+	<span class="hljs-keyword">return</span> &amp;g_int;
+}
+
+EM_PORT_API(<span class="hljs-keyword">double</span>*) get_double_ptr() {
+	<span class="hljs-keyword">return</span> &amp;g_double;
+}
+
+EM_PORT_API(<span class="hljs-keyword">void</span>) print_data() {
+	<span class="hljs-built_in">printf</span>(<span class="hljs-string">&quot;C{g_int:%d}\n&quot;</span>, g_int);
+	<span class="hljs-built_in">printf</span>(<span class="hljs-string">&quot;C{g_double:%lf}\n&quot;</span>, g_double);
+}
+</div></code></pre>
+<p>JS 调用和操作如下：</p>
+<pre><code class="language-javascript"><div>Module.onRuntimeInitialized = <span class="hljs-function">() =&gt;</span> {
+  <span class="hljs-built_in">console</span>.log(<span class="hljs-string">&quot;=== orginal C value ===&quot;</span>);
+  Module._print_data();
+
+  <span class="hljs-built_in">console</span>.log(<span class="hljs-string">&quot;=== read C memory from JS side ===&quot;</span>);
+
+  <span class="hljs-keyword">var</span> int_ptr = Module._get_int_ptr();
+  <span class="hljs-keyword">var</span> int_value = Module.HEAP32[int_ptr &gt;&gt; <span class="hljs-number">2</span>];
+  <span class="hljs-built_in">console</span>.log(<span class="hljs-string">&quot;JS{int_value:&quot;</span> + int_value + <span class="hljs-string">&quot;}&quot;</span>);
+
+  <span class="hljs-keyword">var</span> double_ptr = Module._get_double_ptr();
+  <span class="hljs-keyword">var</span> double_value = Module.HEAPF64[double_ptr &gt;&gt; <span class="hljs-number">3</span>];
+  <span class="hljs-built_in">console</span>.log(<span class="hljs-string">&quot;JS{double_value:&quot;</span> + double_value + <span class="hljs-string">&quot;}&quot;</span>);
+
+  <span class="hljs-built_in">console</span>.log(<span class="hljs-string">&quot;=== write C memory from JS side ===&quot;</span>);
+  Module.HEAP32[int_ptr &gt;&gt; <span class="hljs-number">2</span>] = <span class="hljs-number">13</span>;
+  Module.HEAPF64[double_ptr &gt;&gt; <span class="hljs-number">3</span>] = <span class="hljs-number">123456.789</span>;
+  Module._print_data();
+};
+</div></code></pre>
+<p>输出为：</p>
+<pre><code><code><div>=== orginal C value ===
+C{g_int:42}
+C{g_double:3.141593}
+=== read C memory from JS side ===
+JS{int_value:42}
+JS{double_value:3.1415926}
+=== write C memory from JS side ===
+C{g_int:13}
+C{g_double:123456.789000}
+</div></code></code></pre>
+<p>可以看到，在 JS 中正确读取了 C/C++（wasm）的内存数据；JS 中写入的数据，在 wasm 中亦能正确获取。</p>
+<p>需要注意的是，<code>Module.buffer</code> 是一个 <code>ArrayBuffer</code> 对象，是保存二进制数据的一维数组，无法直接访问，必须通过某种类型的 TypedArray 方可对其进行读写。可以理解为 <code>ArrayBuffer</code> 是实际存储数据的容器，在其上创建的 TypedArray 则是把该容器当作某种类型的数组来使用。常用对应关系如下表：</p>
+<table>
+<thead>
+<tr>
+<th>Object</th>
+<th>TypedArray</th>
+<th>C datatype</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Module.HEAP8</td>
+<td>Int8Array</td>
+<td>int8</td>
+</tr>
+<tr>
+<td>Module.HEAP32</td>
+<td>Int32Array</td>
+<td>int32</td>
+</tr>
+<tr>
+<td>Module.HEAPU16</td>
+<td>Uint16Array</td>
+<td>uint16</td>
+</tr>
+<tr>
+<td>Module.HEAPF64</td>
+<td>Float64Array</td>
+<td>double</td>
+</tr>
+</tbody>
+</table>
+<p>所以在上例中，在 JS 中通过各种类型的 HEAP 对象视图访问 wasm 的内存数据时，地址必须对齐。</p>
+
+    </body>
+    </html>
